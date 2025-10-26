@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disease Outbreak Analytics Dashboard</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.26.0.min.js"></script>
+    
+    <!-- Custom Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- HEADER: Stays the same -->
+        <div class="header">
+            <h1>🏥 Disease Outbreak Analytics Dashboard</h1>
+            <p>Interactive visualization and statistical analysis of Tamil Nadu disease outbreak data</p>
+        </div>
+
+        <!-- CONTROLS: File upload is global -->
+        <div class="controls-section">
+            <div class="file-upload">
+                <label for="csvFile" class="upload-label">📁 Click to Upload File (CSV, TXT, TSV)</label>
+                <input type="file" id="csvFile" accept=".csv,.txt,.tsv" aria-label="Upload CSV file">
+                <div class="file-status" id="fileStatus">No file selected</div>
+                <div class="data-info" id="dataInfo" style="display: none;"></div>
+            </div>
+
+            <!-- 
+                *** NEW: MAIN TAB NAVIGATION ***
+                This will control which "page" is visible.
+            -->
+            <div class="main-nav" id="mainNav" style="display: none;">
+                <button id="main-nav-btn-stats" class="main-nav-btn active">📈 Statistical Inference</button>
+                <button id="main-nav-btn-ml" class="main-nav-btn">🔮 Prediction with ML Models</button>
+                <button id="main-nav-btn-resource" class="main-nav-btn">🏥 Resource Simulator</button>
+                <button id="main-nav-btn-timeline" class="main-nav-btn">🎬 Timeline Animation</button>
+            </div>
+        </div>
+
+        <!-- 
+            *** NEW: PAGE 1 (Statistics) ***
+            This holds all your original dashboard content.
+        -->
+        <div id="statistics-page" class="page-content active" style="display: none;">
+            <div class="page-controls" id="statistics-controls">
+                <div class="filters-grid">
+                    <div class="filter-group">
+                        <label for="diseaseFilter">🦠 Disease</label>
+                        <select id="diseaseFilter" aria-label="Select disease filter" title="Filter by disease">
+                            <option value="All">All Diseases</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="districtFilter">📍 District</label>
+                        <select id="districtFilter" aria-label="Select district filter" title="Filter by district">
+                            <option value="All">All Districts</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="yearFilter">📅 Year</label>
+                        <select id="yearFilter" aria-label="Select year filter" title="Filter by year">
+                            <option value="All">All Years</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="monthFilter">📆 Month</label>
+                        <select id="monthFilter" aria-label="Select month filter" title="Filter by month">
+                            <option value="All">All Months</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="chart-selector">
+                    <button class="chart-btn active" data-chart="time_series">📈 Time Series</button>
+                    <button class="chart-btn" data-chart="seasonal">🌡️ Seasonal Pattern</button>
+                    <button class="chart-btn" data-chart="district_bar">📊 District Comparison</button>
+                    <button class="chart-btn" data-chart="disease_pie">🥧 Disease Distribution</button>
+                    <button class="chart-btn" data-chart="correlation">🔗 Correlation</button>
+                    <button class="chart-btn" data-chart="lag_scatter">📉 Lag Analysis</button>
+                    <button class="chart-btn" data-chart="trend_box">📦 Trend Distribution</button>
+                    <button class="chart-btn" data-chart="healthcare">🏥 Healthcare Demand</button>
+                </div>
+
+                <div class="metric-selector" id="metricSelector" style="display: none;">
+                    <span style="font-weight: 600; color: var(--text-light);">Select Metric:</span>
+                    <button class="metric-btn active" data-metric="Cases">Cases</button>
+                    <button class="metric-btn" data-metric="Bed_Days">Bed Days</button>
+                    <button class="metric-btn" data-metric="ICU_Required">ICU Required</button>
+                    <button class="metric-btn" data-metric="Cases_MA_3w">Moving Avg</button>
+                    <button class="metric-btn" data-metric="Cases_trend_4w">Trend</button>
+                </div>
+            </div>
+
+            <div class="stats-grid" id="statsGrid">
+                <!-- Stat cards are unchanged -->
+                <div class="stat-card"><h3>Total Cases</h3><div class="value" id="totalCases">0</div></div>
+                <div class="stat-card"><h3>Total Districts</h3><div class="value" id="totalDistricts">0</div></div>
+                <div class="stat-card"><h3>Total Diseases</h3><div class="value" id="totalDiseases">0</div></div>
+                <div class="stat-card"><h3>Avg Trend</h3><div class="value" id="avgTrend">0</div></div>
+                <div class="stat-card"><h3>Total Bed Days</h3><div class="value" id="totalBedDays">0</div></div>
+                <div class="stat-card"><h3>ICU Required</h3><div class="value" id="totalICU">0</div></div>
+            </div>
+
+            <div class="chart-container" id="chartContainer">
+                <div class="chart-title" id="chartTitle">Chart</div>
+                <div id="chart"></div>
+            </div>
+        </div>
+
+        <!-- 
+            *** NEW: PAGE 2 (Machine Learning) ***
+            This holds the new ML-driven features.
+        -->
+        <div id="ml-page" class="page-content" style="display: none;">
+            <div class="page-controls" id="ml-controls">
+                <div class="filters-grid">
+                    <!-- Filters specifically for the ML models -->
+                    <div class="filter-group">
+                        <label for="ml-diseaseFilter">🦠 Disease (for Forecast)</label>
+                        <select id="ml-diseaseFilter" aria-label="Select disease for forecast">
+                            <option value="All">Select a Disease</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="ml-districtFilter">📍 District (for Forecast)</label>
+                        <select id="ml-districtFilter" aria-label="Select district for forecast">
+                            <option value="All">Select a District</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="ml-actions">
+                    <!-- Buttons to run the ML tasks -->
+                    <button id="run-forecast-btn" class="action-btn">
+                        <span class="btn-text">🔮 Run Single Forecast</span>
+                        <span class="btn-spinner" style="display: none;"></span>
+                    </button>
+                    <button id="run-comparison-btn" class="action-btn">
+                        <span class="btn-text">📊 Run Model Comparison</span>
+                        <span class="btn-spinner" style="display: none;"></span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- A separate chart container for ML results -->
+            <div class="chart-container" id="mlChartContainer">
+                <div class="chart-title" id="mlChartTitle">ML Model Predictions</div>
+                <div id="mlChartContent" class="ml-welcome">
+                    <h2>Welcome to the ML Prediction Hub</h2>
+                    <p>
+                        • **Run Single Forecast:** Select a specific disease and district to get a 4-week bed day forecast.
+                        <br>
+                        • **Run Model Comparison:** Run a full ML pipeline on the server to compare all models (this may take 30-60 seconds).
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 
+    *** PAGE 3: RESOURCE SIMULATOR ***
+-->
+<div id="resource-page" class="page-content" style="display: none;">
+    <div class="page-controls" id="resource-controls">
+        <div class="filters-grid">
+            <div class="filter-group">
+                <label for="resource-districtFilter">📍 District</label>
+                <select id="resource-districtFilter" aria-label="Select district for simulation">
+                    <option value="">Select a District</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="resource-diseaseFilter">🦠 Disease</label>
+                <select id="resource-diseaseFilter" aria-label="Select disease for simulation">
+                    <option value="">Select a Disease</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="resource-beds">🛏️ Available Beds</label>
+                <input type="number" id="resource-beds" min="0" value="100" placeholder="Enter bed capacity">
+            </div>
+
+            <div class="filter-group">
+                <label for="resource-icu">🏥 ICU Capacity</label>
+                <input type="number" id="resource-icu" min="0" value="20" placeholder="Enter ICU capacity">
+            </div>
+
+            <div class="filter-group">
+                <label for="resource-growth">📈 Growth Rate (%)</label>
+                <input type="number" id="resource-growth" min="-50" max="200" value="10" step="5" placeholder="Expected growth">
+            </div>
+
+            <div class="filter-group">
+                <label for="resource-weeks">📅 Weeks to Simulate</label>
+                <input type="number" id="resource-weeks" min="1" max="52" value="12" placeholder="Simulation period">
+            </div>
+        </div>
+
+        <div class="ml-actions">
+            <button id="run-simulation-btn" class="action-btn">
+                <span class="btn-text">▶️ Run Simulation</span>
+                <span class="btn-spinner" style="display: none;"></span>
+            </button>
+            <button id="export-report-btn" class="action-btn" style="display: none;">
+                <span class="btn-text">📄 Export Report</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="chart-container" id="resourceChartContainer">
+        <div class="chart-title" id="resourceChartTitle">Resource Capacity Planning</div>
+        <div id="resourceChartContent" class="ml-welcome">
+            <h2>Welcome to the Resource Simulator</h2>
+            <p>
+                • Select a <strong>district</strong> and <strong>disease</strong> to analyze<br>
+                • Configure your <strong>available resources</strong> (beds, ICU capacity)<br>
+                • Set the <strong>expected growth rate</strong> for projections<br>
+                • Click <strong>Run Simulation</strong> to see capacity planning recommendations
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- 
+    *** PAGE 4: TIMELINE ANIMATION ***
+-->
+<div id="timeline-page" class="page-content" style="display: none;">
+    <div class="page-controls" id="timeline-controls">
+        <div class="filters-grid">
+            <div class="filter-group">
+                <label for="timeline-diseaseFilter">🦠 Disease</label>
+                <select id="timeline-diseaseFilter" aria-label="Select disease for animation">
+                    <option value="All">All Diseases</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="timeline-metric">📊 Metric</label>
+                <select id="timeline-metric" aria-label="Select metric">
+                    <option value="Cases">Cases</option>
+                    <option value="Bed_Days">Bed Days</option>
+                    <option value="ICU_Required">ICU Required</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="timeline-speed">⚡ Animation Speed</label>
+                <select id="timeline-speed" aria-label="Select animation speed">
+                    <option value="2000">Slow (2s per frame)</option>
+                    <option value="1000" selected>Normal (1s per frame)</option>
+                    <option value="500">Fast (0.5s per frame)</option>
+                    <option value="250">Very Fast (0.25s per frame)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="ml-actions">
+            <button id="timeline-play-btn" class="action-btn">
+                <span class="btn-text">▶️ Play</span>
+            </button>
+            <button id="timeline-pause-btn" class="action-btn" style="display: none;">
+                <span class="btn-text">⏸️ Pause</span>
+            </button>
+            <button id="timeline-reset-btn" class="action-btn">
+                <span class="btn-text">🔄 Reset</span>
+            </button>
+        </div>
+
+        <div class="timeline-progress" id="timelineProgress" style="display: none;">
+            <div class="progress-text" id="progressText">Week 1 of 52</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="chart-container" id="timelineChartContainer">
+        <div class="chart-title" id="timelineChartTitle">Outbreak Evolution Over Time</div>
+        <div id="timelineChartContent" class="ml-welcome">
+            <h2>Welcome to the Timeline Animation</h2>
+            <p>
+                • Select a <strong>disease</strong> (or view all)<br>
+                • Choose the <strong>metric</strong> to visualize<br>
+                • Adjust the <strong>animation speed</strong><br>
+                • Click <strong>Play</strong> to watch the outbreak evolution across districts
+            </p>
+        </div>
+    </div>
+</div>
+
+        <!-- Welcome message is shown at the start -->
+        <div class="welcome-message" id="welcomeMessage">
+             <h2>👋 Welcome to Disease Outbreak Analytics</h2>
+            <p>📁 Please upload your <strong>.csv</strong>, <strong>.txt</strong>, or <strong>.tsv</strong> file to begin analysis</p>
+            <p style="margin-top: 20px; font-size: 1em; color: #6c757d;">
+                Click the upload button above to load your data and start exploring interactive visualizations
+            </p>
+        </div>
+    </div>
+
+    <!-- Custom JavaScript -->
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
+
