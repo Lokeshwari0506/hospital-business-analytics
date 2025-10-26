@@ -333,10 +333,10 @@ def home():
 
 if __name__ == '__main__':
     print("\n" + "="*60)
-    print("🚀 Starting Python ML Server")
+    print("Starting Python ML Server")
     print("="*60)
-    print("📍 Server URL: http://localhost:5000")
-    print("📊 Endpoints:")
+    print("Server URL: http://localhost:5000")
+    print("Endpoints:")
     print("   - POST /predict (Single forecast)")
     print("   - GET  /run_comparison (Full model comparison)")
     print("="*60 + "\n")
