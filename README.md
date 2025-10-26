@@ -433,4 +433,3 @@ If you found this project helpful, please consider giving it a star! It helps ot
 
 **Built with ❤️ for better healthcare decision-making**
 
-*Last Updated: January 2025*
